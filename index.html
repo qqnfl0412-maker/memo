@@ -74,6 +74,7 @@
       cursor: pointer;
       font-size: 14px;
       font-weight: 700;
+      height: 38px;
     }
 
     .add-btn {
@@ -118,6 +119,12 @@
       white-space: pre-wrap;
       word-break: break-word;
       line-height: 1.45;
+      cursor: pointer;
+      padding: 2px 0;
+    }
+
+    .memo-content:hover {
+      opacity: 0.85;
     }
 
     .memo-time {
@@ -126,11 +133,27 @@
       margin-top: 6px;
     }
 
+    .memo-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .copy-btn {
+      background: #2ecc71;
+      color: #fff;
+      padding: 8px 10px;
+    }
+
+    .copy-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
     .delete-btn {
       background: #ff5b5b;
       color: #fff;
       padding: 8px 10px;
-      flex-shrink: 0;
     }
 
     .delete-btn:disabled {
@@ -158,8 +181,13 @@
         align-items: stretch;
       }
 
-      .delete-btn {
+      .memo-actions {
         width: 100%;
+      }
+
+      .copy-btn,
+      .delete-btn {
+        flex: 1;
         height: 40px;
       }
     }
@@ -184,8 +212,8 @@
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-    const SUPABASE_URL = "https://bvtywtnvkficbzuabgcc.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2dHl3dG52a2ZpY2J6dWFiZ2NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NTc1NDksImV4cCI6MjA4OTMzMzU0OX0.X0yxXe7Yhldp6oIVQXmZbuPBAU9FhpgEqADKAUMWaxI";
+    const SUPABASE_URL = "여기에_SUPABASE_URL";
+    const SUPABASE_ANON_KEY = "여기에_SUPABASE_ANON_KEY";
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -254,10 +282,13 @@
       memoList.innerHTML = memos.map((memo) => `
         <div class="memo-item" data-id="${memo.id}">
           <div class="memo-left">
-            <div class="memo-content">${escapeHtml(memo.content)}</div>
+            <div class="memo-content" data-content="${encodeURIComponent(memo.content)}">${escapeHtml(memo.content)}</div>
             <div class="memo-time">${formatTime(memo.created_at)}</div>
           </div>
-          <button class="delete-btn" data-id="${memo.id}">삭제</button>
+          <div class="memo-actions">
+            <button class="copy-btn" data-content="${encodeURIComponent(memo.content)}">복사</button>
+            <button class="delete-btn" data-id="${memo.id}">삭제</button>
+          </div>
         </div>
       `).join("");
 
@@ -267,6 +298,54 @@
           await deleteMemo(id);
         });
       });
+
+      document.querySelectorAll(".copy-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const text = decodeURIComponent(btn.dataset.content);
+          await copyText(text, btn, "복사됨!");
+        });
+      });
+
+      document.querySelectorAll(".memo-content").forEach((el) => {
+        el.addEventListener("click", async () => {
+          const text = decodeURIComponent(el.dataset.content);
+          await copyText(text, el, "내용 복사됨!");
+        });
+      });
+    }
+
+    async function copyText(text, targetEl, successMessage = "복사됨!") {
+      try {
+        await navigator.clipboard.writeText(text);
+
+        const originalText = targetEl.dataset.originalText || targetEl.textContent;
+        const isButton = targetEl.tagName === "BUTTON";
+
+        if (!targetEl.dataset.originalText) {
+          targetEl.dataset.originalText = originalText;
+        }
+
+        if (isButton) {
+          targetEl.textContent = successMessage;
+          targetEl.disabled = true;
+
+          setTimeout(() => {
+            targetEl.textContent = targetEl.dataset.originalText;
+            targetEl.disabled = false;
+          }, 1000);
+        } else {
+          targetEl.textContent = successMessage;
+          targetEl.style.color = "#2ecc71";
+
+          setTimeout(() => {
+            targetEl.textContent = targetEl.dataset.originalText;
+            targetEl.style.color = "";
+          }, 1000);
+        }
+      } catch (err) {
+        console.error("복사 실패:", err);
+        alert("복사에 실패했습니다.");
+      }
     }
 
     async function addMemo() {
