@@ -53,13 +53,14 @@
 
     #memoInput {
       flex: 1;
-      min-height: 52px;
+      min-height: 56px;
       resize: vertical;
       padding: 12px;
       border: 1px solid #d8dce5;
       border-radius: 10px;
       font-size: 15px;
       outline: none;
+      background: white;
     }
 
     #memoInput:focus {
@@ -101,6 +102,11 @@
       border: 1px solid #e6eaf2;
       border-radius: 10px;
       background: #fafbff;
+      transition: opacity 0.15s ease;
+    }
+
+    .memo-item.removing {
+      opacity: 0.35;
     }
 
     .memo-left {
@@ -111,7 +117,7 @@
     .memo-content {
       white-space: pre-wrap;
       word-break: break-word;
-      line-height: 1.4;
+      line-height: 1.45;
     }
 
     .memo-time {
@@ -125,6 +131,11 @@
       color: #fff;
       padding: 8px 10px;
       flex-shrink: 0;
+    }
+
+    .delete-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
 
     .empty {
@@ -188,6 +199,7 @@
     const memoList = document.getElementById("memoList");
 
     let isSaving = false;
+    const deletingIds = new Set();
 
     roomText.textContent = `메모방: ${roomId}`;
 
@@ -209,6 +221,12 @@
 
     function setStatus(text) {
       statusText.textContent = `실시간 상태: ${text}`;
+    }
+
+    function showEmptyIfNeeded() {
+      if (!document.querySelector(".memo-item")) {
+        memoList.innerHTML = `<div class="empty">아직 메모가 없습니다.</div>`;
+      }
     }
 
     async function loadMemos() {
@@ -234,7 +252,7 @@
       }
 
       memoList.innerHTML = memos.map((memo) => `
-        <div class="memo-item">
+        <div class="memo-item" data-id="${memo.id}">
           <div class="memo-left">
             <div class="memo-content">${escapeHtml(memo.content)}</div>
             <div class="memo-time">${formatTime(memo.created_at)}</div>
@@ -275,6 +293,26 @@
     }
 
     async function deleteMemo(id) {
+      if (deletingIds.has(id)) return;
+      deletingIds.add(id);
+
+      const targetEl = document.querySelector(`.memo-item[data-id="${id}"]`);
+      const deleteBtn = targetEl?.querySelector(".delete-btn");
+
+      if (deleteBtn) {
+        deleteBtn.disabled = true;
+      }
+
+      if (targetEl) {
+        targetEl.classList.add("removing");
+        setTimeout(() => {
+          if (targetEl.isConnected) {
+            targetEl.remove();
+            showEmptyIfNeeded();
+          }
+        }, 80);
+      }
+
       const { error } = await supabase
         .from("memos")
         .delete()
@@ -283,9 +321,10 @@
       if (error) {
         console.error("deleteMemo error:", error);
         alert("메모 삭제에 실패했습니다.");
-      } else {
         await loadMemos();
       }
+
+      deletingIds.delete(id);
     }
 
     addBtn.addEventListener("click", addMemo);
