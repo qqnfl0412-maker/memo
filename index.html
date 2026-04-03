@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>공유 메모</title>
+  <title>공유 메모 + 파일 첨부</title>
   <style>
     * { box-sizing: border-box; }
 
@@ -15,7 +15,7 @@
     }
 
     .wrap {
-      max-width: 720px;
+      max-width: 760px;
       margin: 0 auto;
       padding: 20px;
     }
@@ -39,21 +39,22 @@
     }
 
     .status-text {
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       color: #4f7cff;
       font-size: 13px;
       font-weight: 700;
     }
 
-    .input-row {
+    .input-box {
       display: flex;
-      gap: 8px;
+      flex-direction: column;
+      gap: 10px;
       margin-bottom: 16px;
     }
 
     #memoInput {
-      flex: 1;
-      min-height: 56px;
+      width: 100%;
+      min-height: 72px;
       resize: vertical;
       padding: 12px;
       border: 1px solid #d8dce5;
@@ -65,6 +66,23 @@
 
     #memoInput:focus {
       border-color: #4f7cff;
+    }
+
+    .attach-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    #fileInput {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .selected-file {
+      font-size: 13px;
+      color: #666;
     }
 
     button {
@@ -80,12 +98,22 @@
     .add-btn {
       background: #4f7cff;
       color: white;
-      min-width: 84px;
+      min-width: 90px;
+      align-self: flex-end;
     }
 
-    .add-btn:disabled {
+    .add-btn:disabled,
+    .copy-btn:disabled,
+    .delete-btn:disabled,
+    .file-link-btn:disabled {
       opacity: 0.6;
       cursor: not-allowed;
+    }
+
+    .tip {
+      font-size: 12px;
+      color: #777;
+      margin-bottom: 6px;
     }
 
     .list {
@@ -96,8 +124,7 @@
 
     .memo-item {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
+      flex-direction: column;
       gap: 12px;
       padding: 12px;
       border: 1px solid #e6eaf2;
@@ -108,11 +135,6 @@
 
     .memo-item.removing {
       opacity: 0.35;
-    }
-
-    .memo-left {
-      flex: 1;
-      min-width: 0;
     }
 
     .memo-content {
@@ -130,35 +152,66 @@
     .memo-time {
       font-size: 12px;
       color: #888;
-      margin-top: 6px;
+    }
+
+    .file-box {
+      border: 1px solid #dfe6f2;
+      background: #fff;
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    .file-name {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      word-break: break-all;
+    }
+
+    .file-meta {
+      font-size: 12px;
+      color: #777;
+      margin-bottom: 8px;
+    }
+
+    .file-preview {
+      margin-bottom: 10px;
+    }
+
+    .file-preview img {
+      max-width: 100%;
+      border-radius: 8px;
+      display: block;
     }
 
     .memo-actions {
       display: flex;
       gap: 6px;
-      flex-shrink: 0;
+      flex-wrap: wrap;
     }
 
     .copy-btn {
       background: #2ecc71;
       color: #fff;
-      padding: 8px 10px;
-    }
-
-    .copy-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
     }
 
     .delete-btn {
       background: #ff5b5b;
       color: #fff;
-      padding: 8px 10px;
     }
 
-    .delete-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+    .file-link-btn {
+      background: #6366f1;
+      color: white;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      height: 38px;
     }
 
     .empty {
@@ -168,27 +221,16 @@
     }
 
     @media (max-width: 640px) {
-      .input-row {
-        flex-direction: column;
-      }
-
       .add-btn {
-        height: 44px;
-      }
-
-      .memo-item {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .memo-actions {
         width: 100%;
       }
 
-      .copy-btn,
-      .delete-btn {
+      .memo-actions > * {
         flex: 1;
-        height: 40px;
+      }
+
+      .file-link-btn {
+        width: 100%;
       }
     }
   </style>
@@ -199,9 +241,16 @@
       <h1>공유 메모</h1>
       <div class="room-text" id="roomText"></div>
       <div class="status-text" id="statusText">실시간 상태: 연결 중...</div>
+      <div class="tip">작은 파일 위주로 사용 추천. 이미지, PDF, 문서 파일 정도가 무난해.</div>
 
-      <div class="input-row">
+      <div class="input-box">
         <textarea id="memoInput" placeholder="메모를 입력하세요"></textarea>
+
+        <div class="attach-row">
+          <input type="file" id="fileInput" />
+          <div class="selected-file" id="selectedFileText">선택된 파일 없음</div>
+        </div>
+
         <button class="add-btn" id="addBtn">추가</button>
       </div>
 
@@ -214,6 +263,8 @@
 
     const SUPABASE_URL = "https://bvtywtnvkficbzuabgcc.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2dHl3dG52a2ZpY2J6dWFiZ2NjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NTc1NDksImV4cCI6MjA4OTMzMzU0OX0.X0yxXe7Yhldp6oIVQXmZbuPBAU9FhpgEqADKAUMWaxI";
+    const STORAGE_BUCKET = "memo-files";
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -223,6 +274,8 @@
     const roomText = document.getElementById("roomText");
     const statusText = document.getElementById("statusText");
     const memoInput = document.getElementById("memoInput");
+    const fileInput = document.getElementById("fileInput");
+    const selectedFileText = document.getElementById("selectedFileText");
     const addBtn = document.getElementById("addBtn");
     const memoList = document.getElementById("memoList");
 
@@ -230,6 +283,13 @@
     const deletingIds = new Set();
 
     roomText.textContent = `메모방: ${roomId}`;
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      selectedFileText.textContent = file
+        ? `${file.name} (${formatBytes(file.size)})`
+        : "선택된 파일 없음";
+    });
 
     function formatTime(value) {
       const d = new Date(value);
@@ -239,6 +299,18 @@
       const hh = String(d.getHours()).padStart(2, "0");
       const mm = String(d.getMinutes()).padStart(2, "0");
       return `${y}-${m}-${day} ${hh}:${mm}`;
+    }
+
+    function formatBytes(bytes = 0) {
+      if (!bytes) return "0B";
+      const units = ["B", "KB", "MB", "GB"];
+      let i = 0;
+      let value = bytes;
+      while (value >= 1024 && i < units.length - 1) {
+        value /= 1024;
+        i++;
+      }
+      return `${value.toFixed(value >= 10 || i === 0 ? 0 : 1)}${units[i]}`;
     }
 
     function escapeHtml(text) {
@@ -255,6 +327,28 @@
       if (!document.querySelector(".memo-item")) {
         memoList.innerHTML = `<div class="empty">아직 메모가 없습니다.</div>`;
       }
+    }
+
+    function isImageFile(type = "") {
+      return type.startsWith("image/");
+    }
+
+    function isAllowedFile(file) {
+      const allowed = [
+        "image/",
+        "application/pdf",
+        "text/plain",
+        "application/zip",
+        "application/x-zip-compressed",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      ];
+
+      return allowed.some((item) => item.endsWith("/") ? file.type.startsWith(item) : file.type === item);
     }
 
     async function loadMemos() {
@@ -281,21 +375,35 @@
 
       memoList.innerHTML = memos.map((memo) => `
         <div class="memo-item" data-id="${memo.id}">
-          <div class="memo-left">
+          ${memo.content ? `
             <div class="memo-content" data-content="${encodeURIComponent(memo.content)}">${escapeHtml(memo.content)}</div>
-            <div class="memo-time">${formatTime(memo.created_at)}</div>
-          </div>
+          ` : ""}
+
+          ${memo.file_url ? `
+            <div class="file-box">
+              <div class="file-name">${escapeHtml(memo.file_name || "첨부파일")}</div>
+              <div class="file-meta">${escapeHtml(memo.file_type || "파일")} · ${formatBytes(memo.file_size || 0)}</div>
+              ${isImageFile(memo.file_type || "") ? `
+                <div class="file-preview">
+                  <img src="${memo.file_url}" alt="${escapeHtml(memo.file_name || "첨부 이미지")}" />
+                </div>
+              ` : ""}
+              <a class="file-link-btn" href="${memo.file_url}" target="_blank" rel="noopener noreferrer">파일 열기</a>
+            </div>
+          ` : ""}
+
+          <div class="memo-time">${formatTime(memo.created_at)}</div>
+
           <div class="memo-actions">
-            <button class="copy-btn" data-content="${encodeURIComponent(memo.content)}">복사</button>
-            <button class="delete-btn" data-id="${memo.id}">삭제</button>
+            ${memo.content ? `<button class="copy-btn" data-content="${encodeURIComponent(memo.content)}">복사</button>` : ""}
+            <button class="delete-btn" data-id="${memo.id}" data-file-path="${memo.file_path || ""}">삭제</button>
           </div>
         </div>
       `).join("");
 
       document.querySelectorAll(".delete-btn").forEach((btn) => {
         btn.addEventListener("click", async () => {
-          const id = btn.dataset.id;
-          await deleteMemo(id);
+          await deleteMemo(btn.dataset.id, btn.dataset.filePath);
         });
       });
 
@@ -328,7 +436,6 @@
         if (isButton) {
           targetEl.textContent = successMessage;
           targetEl.disabled = true;
-
           setTimeout(() => {
             targetEl.textContent = targetEl.dataset.originalText;
             targetEl.disabled = false;
@@ -336,51 +443,113 @@
         } else {
           targetEl.textContent = successMessage;
           targetEl.style.color = "#2ecc71";
-
           setTimeout(() => {
             targetEl.textContent = targetEl.dataset.originalText;
             targetEl.style.color = "";
           }, 1000);
         }
       } catch (err) {
-        console.error("복사 실패:", err);
+        console.error("copyText error:", err);
         alert("복사에 실패했습니다.");
       }
     }
 
+    async function uploadFile(file) {
+      const safeName = file.name.replace(/[^\w.\-가-힣 ]/g, "_");
+      const path = `${roomId}/${Date.now()}_${safeName}`;
+
+      const { error: uploadError } = await supabase
+        .storage
+        .from(STORAGE_BUCKET)
+        .upload(path, file, {
+          cacheControl: "3600",
+          upsert: false
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data } = supabase
+        .storage
+        .from(STORAGE_BUCKET)
+        .getPublicUrl(path);
+
+      return {
+        file_path: path,
+        file_url: data.publicUrl,
+        file_name: file.name,
+        file_type: file.type || "application/octet-stream",
+        file_size: file.size || 0
+      };
+    }
+
     async function addMemo() {
       const content = memoInput.value.trim();
-      if (!content || isSaving) return;
+      const file = fileInput.files?.[0] || null;
+
+      if ((!content && !file) || isSaving) return;
+
+      if (file) {
+        if (!isAllowedFile(file)) {
+          alert("지원하지 않는 파일 형식입니다.");
+          return;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+          alert("파일 크기는 10MB 이하만 업로드할 수 있습니다.");
+          return;
+        }
+      }
 
       isSaving = true;
       addBtn.disabled = true;
+      addBtn.textContent = file ? "업로드 중..." : "저장 중...";
 
-      const { error } = await supabase
-        .from("memos")
-        .insert([{ room_id: roomId, content }]);
+      try {
+        let fileInfo = {
+          file_name: null,
+          file_path: null,
+          file_url: null,
+          file_type: null,
+          file_size: null
+        };
 
-      if (error) {
-        console.error("addMemo error:", error);
-        alert("메모 저장에 실패했습니다.");
-      } else {
+        if (file) {
+          fileInfo = await uploadFile(file);
+        }
+
+        const { error } = await supabase
+          .from("memos")
+          .insert([{
+            room_id: roomId,
+            content: content || null,
+            ...fileInfo
+          }]);
+
+        if (error) throw error;
+
         memoInput.value = "";
+        fileInput.value = "";
+        selectedFileText.textContent = "선택된 파일 없음";
         await loadMemos();
+      } catch (err) {
+        console.error("addMemo error:", err);
+        alert("메모 저장 또는 파일 업로드에 실패했습니다.");
+      } finally {
+        isSaving = false;
+        addBtn.disabled = false;
+        addBtn.textContent = "추가";
       }
-
-      isSaving = false;
-      addBtn.disabled = false;
     }
 
-    async function deleteMemo(id) {
+    async function deleteMemo(id, filePath) {
       if (deletingIds.has(id)) return;
       deletingIds.add(id);
 
       const targetEl = document.querySelector(`.memo-item[data-id="${id}"]`);
       const deleteBtn = targetEl?.querySelector(".delete-btn");
 
-      if (deleteBtn) {
-        deleteBtn.disabled = true;
-      }
+      if (deleteBtn) deleteBtn.disabled = true;
 
       if (targetEl) {
         targetEl.classList.add("removing");
@@ -392,18 +561,31 @@
         }, 80);
       }
 
-      const { error } = await supabase
-        .from("memos")
-        .delete()
-        .eq("id", id);
+      try {
+        if (filePath) {
+          const { error: storageError } = await supabase
+            .storage
+            .from(STORAGE_BUCKET)
+            .remove([filePath]);
 
-      if (error) {
-        console.error("deleteMemo error:", error);
-        alert("메모 삭제에 실패했습니다.");
+          if (storageError) {
+            console.error("storage delete error:", storageError);
+          }
+        }
+
+        const { error } = await supabase
+          .from("memos")
+          .delete()
+          .eq("id", id);
+
+        if (error) throw error;
+      } catch (err) {
+        console.error("deleteMemo error:", err);
+        alert("삭제에 실패했습니다.");
         await loadMemos();
+      } finally {
+        deletingIds.delete(id);
       }
-
-      deletingIds.delete(id);
     }
 
     addBtn.addEventListener("click", addMemo);
@@ -436,17 +618,11 @@
       .subscribe((status) => {
         console.log("realtime status:", status);
 
-        if (status === "SUBSCRIBED") {
-          setStatus("연결됨");
-        } else if (status === "CHANNEL_ERROR") {
-          setStatus("채널 오류");
-        } else if (status === "TIMED_OUT") {
-          setStatus("시간 초과");
-        } else if (status === "CLOSED") {
-          setStatus("연결 종료");
-        } else {
-          setStatus(status);
-        }
+        if (status === "SUBSCRIBED") setStatus("연결됨");
+        else if (status === "CHANNEL_ERROR") setStatus("채널 오류");
+        else if (status === "TIMED_OUT") setStatus("시간 초과");
+        else if (status === "CLOSED") setStatus("연결 종료");
+        else setStatus(status);
       });
 
     window.addEventListener("beforeunload", async () => {
