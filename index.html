@@ -350,11 +350,11 @@
       ];
 
       const allowedExtensions = [
+        ".png", ".jpg", ".jpeg", ".gif", ".webp",
         ".txt", ".pdf", ".zip",
         ".doc", ".docx",
         ".xls", ".xlsx",
         ".ppt", ".pptx",
-        ".png", ".jpg", ".jpeg", ".gif", ".webp",
         ".apk"
       ];
 
@@ -476,14 +476,6 @@
       const safeName = file.name.replace(/[^\w.\-가-힣 ]/g, "_");
       const path = `${roomId}/${Date.now()}_${safeName}`;
 
-      console.log("업로드 시작:", {
-        bucket: STORAGE_BUCKET,
-        path,
-        fileName: file.name,
-        fileType: file.type,
-        fileSize: file.size
-      });
-
       const { data: uploadData, error: uploadError } = await supabase
         .storage
         .from(STORAGE_BUCKET)
@@ -494,17 +486,13 @@
 
       if (uploadError) {
         console.error("storage upload error:", uploadError);
-        throw uploadError;
+        throw new Error(`파일 업로드 실패: ${uploadError.message}`);
       }
-
-      console.log("업로드 성공:", uploadData);
 
       const { data } = supabase
         .storage
         .from(STORAGE_BUCKET)
         .getPublicUrl(path);
-
-      console.log("public url:", data?.publicUrl);
 
       return {
         file_path: path,
@@ -521,17 +509,6 @@
 
       if ((!content && !file) || isSaving) return;
 
-      if (file) {
-        if (!isAllowedFile(file)) {
-          alert("지원하지 않는 파일 형식입니다.");
-          return;
-        }
-        if (file.size > MAX_FILE_SIZE) {
-          alert("파일 크기는 10MB 이하만 업로드할 수 있습니다.");
-          return;
-        }
-      }
-
       isSaving = true;
       addBtn.disabled = true;
       addBtn.textContent = file ? "업로드 중..." : "저장 중...";
@@ -546,10 +523,17 @@
         };
 
         if (file) {
+          console.log("선택 파일:", {
+            name: file.name,
+            type: file.type,
+            size: file.size
+          });
+
           fileInfo = await uploadFile(file);
+          console.log("업로드 성공:", fileInfo);
         }
 
-        const { error } = await supabase
+        const { error: insertError } = await supabase
           .from("memos")
           .insert([{
             room_id: roomId,
@@ -557,15 +541,18 @@
             ...fileInfo
           }]);
 
-        if (error) throw error;
+        if (insertError) {
+          console.error("memos insert error:", insertError);
+          throw new Error(`DB 저장 실패: ${insertError.message}`);
+        }
 
         memoInput.value = "";
         fileInput.value = "";
         selectedFileText.textContent = "선택된 파일 없음";
         await loadMemos();
       } catch (err) {
-        console.error("addMemo error:", err);
-        alert("메모 저장 또는 파일 업로드에 실패했습니다.");
+        console.error("addMemo 최종 에러:", err);
+        alert(err.message || "저장에 실패했습니다.");
       } finally {
         isSaving = false;
         addBtn.disabled = false;
