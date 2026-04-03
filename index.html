@@ -354,13 +354,16 @@
         ".doc", ".docx",
         ".xls", ".xlsx",
         ".ppt", ".pptx",
+        ".png", ".jpg", ".jpeg", ".gif", ".webp",
         ".apk"
       ];
 
       const fileName = (file.name || "").toLowerCase();
+      const fileType = file.type || "";
+
       const isAllowedExtension = allowedExtensions.some((ext) => fileName.endsWith(ext));
       const isAllowedMime = allowedMimeTypes.some((item) =>
-        item.endsWith("/") ? file.type.startsWith(item) : file.type === item
+        item.endsWith("/") ? fileType.startsWith(item) : fileType === item
       );
 
       return isAllowedExtension || isAllowedMime;
@@ -473,7 +476,15 @@
       const safeName = file.name.replace(/[^\w.\-가-힣 ]/g, "_");
       const path = `${roomId}/${Date.now()}_${safeName}`;
 
-      const { error: uploadError } = await supabase
+      console.log("업로드 시작:", {
+        bucket: STORAGE_BUCKET,
+        path,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size
+      });
+
+      const { data: uploadData, error: uploadError } = await supabase
         .storage
         .from(STORAGE_BUCKET)
         .upload(path, file, {
@@ -482,13 +493,18 @@
         });
 
       if (uploadError) {
+        console.error("storage upload error:", uploadError);
         throw uploadError;
       }
+
+      console.log("업로드 성공:", uploadData);
 
       const { data } = supabase
         .storage
         .from(STORAGE_BUCKET)
         .getPublicUrl(path);
+
+      console.log("public url:", data?.publicUrl);
 
       return {
         file_path: path,
