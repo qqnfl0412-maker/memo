@@ -334,7 +334,7 @@
     }
 
     function isAllowedFile(file) {
-      const allowed = [
+      const allowedMimeTypes = [
         "image/",
         "application/pdf",
         "text/plain",
@@ -345,10 +345,25 @@
         "application/vnd.ms-excel",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "application/vnd.ms-powerpoint",
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.android.package-archive"
       ];
 
-      return allowed.some((item) => item.endsWith("/") ? file.type.startsWith(item) : file.type === item);
+      const allowedExtensions = [
+        ".txt", ".pdf", ".zip",
+        ".doc", ".docx",
+        ".xls", ".xlsx",
+        ".ppt", ".pptx",
+        ".apk"
+      ];
+
+      const fileName = (file.name || "").toLowerCase();
+      const isAllowedExtension = allowedExtensions.some((ext) => fileName.endsWith(ext));
+      const isAllowedMime = allowedMimeTypes.some((item) =>
+        item.endsWith("/") ? file.type.startsWith(item) : file.type === item
+      );
+
+      return isAllowedExtension || isAllowedMime;
     }
 
     async function loadMemos() {
